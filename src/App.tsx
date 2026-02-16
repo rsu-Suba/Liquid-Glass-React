@@ -5,7 +5,7 @@ export default function PC() {
     return (
         <div className="mainCanvas">
             <Glass
-                imageUrl="../public/26-Tahoe-Beach-Day-thumb.jpeg"
+                imageUrl="./26-Tahoe-Beach-Day-thumb.jpeg"
                 width={250}
                 height={250}
                 bgScale={1.0}
