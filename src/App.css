@@ -1,0 +1,23 @@
+.mainCanvas {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    left: 0;
+    top: 0;
+    overflow: hidden;
+}
+
+.LiquidCanvas {
+    display: block;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+
+.LiquidGlassObj {
+    position: absolute;
+    border-radius: 9999px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+    pointer-events: none;
+    box-sizing: border-box;
+    background-color: rgba(255, 255, 255, 0.12);
+    backdrop-filter: blur(0.4px) saturate(150%) brightness(105%);
+}
