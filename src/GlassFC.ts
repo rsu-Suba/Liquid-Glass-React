@@ -6,7 +6,6 @@ interface spine {
 }
 
 interface ring {
-    innerRadius: number;
     innerRadiusSq: number;
     radiusSq: number;
     invRingThickness: number;
@@ -32,17 +31,15 @@ const spineFC = (width: number, height: number) => {
     return spine;
 };
 
-const ringFC = (radius: number, innerRatio: number, innerBlurWidth: number) => {
-    const innerRadius = radius * innerRatio;
-    const ringThickness = radius - innerRadius;
+const ringFC = (radius: number, innerRadius: number, innerBlurWidth: number) => {
+    const ringThickness = Math.max(radius - innerRadius, 0.001);
 
     const ring: ring = {
-        innerRadius: radius * innerRatio,
         innerRadiusSq: Math.pow(innerRadius, 2),
         radiusSq: Math.pow(radius, 2),
         invRingThickness: 1.0 / ringThickness,
-        invInnerBlurWidth: 1.0 / innerBlurWidth,
-        reflectMinRadius: innerRadius * 0.3,
+        invInnerBlurWidth: 1.0 / (innerBlurWidth || 0.001),
+        reflectMinRadius: 0.001
     };
 
     return ring;

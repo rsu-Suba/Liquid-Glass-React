@@ -5,7 +5,7 @@ interface ProcessGlassParams {
     startPos: { x: number; y: number };
     size: { x: number; y: number };
     currentSize: { width: number; height: number };
-    innerRatio: number;
+    innerRadius: number;
     innerBlurWidth: number;
     compressionPower?: number;
 }
@@ -15,19 +15,30 @@ export const processGlassRefraction = ({
     startPos,
     size,
     currentSize,
-    innerRatio,
+    innerRadius,
     innerBlurWidth,
-    compressionPower = 2.2,
+    compressionPower = 4.0,
 }: ProcessGlassParams) => {
     try {
+        const maxAberration = 0.3;
+        const maxSpineDistortion = 30.0;
+
         const imageData = ctx.getImageData(startPos.x, startPos.y, size.x, size.y);
         const data8 = imageData.data;
-        const data32 = new Uint32Array(data8.buffer);
         const newData8 = new Uint8ClampedArray(data8);
-        const newData32 = new Uint32Array(newData8.buffer);
 
         const spine = spineFC(currentSize.width, currentSize.height);
-        const ring = ringFC(spine.radius, innerRatio, innerBlurWidth);
+        innerRadius = Math.min(spine.radius - 20, spine.radius * 0.87);
+        const ring = ringFC(spine.radius, innerRadius, innerBlurWidth);
+
+        const spineMidX = (spine.Start.x + spine.End.x) * 0.5;
+        const spineMidY = (spine.Start.y + spine.End.y) * 0.5;
+
+        const dxSpine = spine.End.x - spine.Start.x;
+        const dySpine = spine.End.y - spine.Start.y;
+        const halfSpineLength = Math.sqrt(dxSpine * dxSpine + dySpine * dySpine) * 0.5;
+
+        const invHalfSpineLength = halfSpineLength > 0 ? 1.0 / halfSpineLength : 0;
 
         for (let y = 0; y < size.y; y++) {
             const cy = Math.max(spine.Start.y, Math.min(y, spine.End.y));
@@ -41,32 +52,65 @@ export const processGlassRefraction = ({
 
                 if (distSq > ring.innerRadiusSq && distSq <= ring.radiusSq) {
                     const distance = Math.sqrt(distSq);
-                    const ratioInRing = (distance - ring.innerRadius) * ring.invRingThickness;
+
+                    const ratioInRing = (distance - innerRadius) * ring.invRingThickness;
                     const compressedRatio = Math.pow(ratioInRing, compressionPower);
-                    const newDistance = ring.innerRadius - compressedRatio * (ring.innerRadius - ring.reflectMinRadius);
+                    const newDistance = innerRadius - compressedRatio * (innerRadius - ring.reflectMinRadius);
+
                     const ratio = newDistance / distance;
-                    const srcX = (cx + dx * ratio + 0.5) | 0;
-                    const srcY = (cy + dy * ratio + 0.5) | 0;
+                    const baseDX = dx * ratio;
+                    const baseDY = dy * ratio;
 
-                    if (srcX >= 0 && srcX < size.x && srcY >= 0 && srcY < size.y) {
+                    const dxMid = cx - spineMidX;
+                    const dyMid = cy - spineMidY;
+                    const spineRatioX = dxMid * invHalfSpineLength;
+                    const spineRatioY = dyMid * invHalfSpineLength;
+                    const spineForce = -maxSpineDistortion * Math.pow(ratioInRing, 3);
+                    const spineShiftX = spineRatioX * Math.abs(spineRatioX) * spineForce;
+                    const spineShiftY = spineRatioY * Math.abs(spineRatioY) * spineForce;
+
+                    const finalBaseDX = baseDX + spineShiftX;
+                    const finalBaseDY = baseDY + spineShiftY;
+                    const aberForce = maxAberration * Math.pow(ratioInRing, 4);
+                    const shiftX = finalBaseDY * aberForce;
+                    const shiftY = finalBaseDX * aberForce;
+
+                    const srcXR = (cx + finalBaseDX - shiftX + 0.5) | 0;
+                    const srcYR = (cy + finalBaseDY + shiftY + 0.5) | 0;
+                    const srcXG = (cx + finalBaseDX + 0.5) | 0;
+                    const srcYG = (cy + finalBaseDY + 0.5) | 0;
+                    const srcXB = (cx + finalBaseDX + shiftX + 0.5) | 0;
+                    const srcYB = (cy + finalBaseDY - shiftY + 0.5) | 0;
+
+                    if (srcXG >= 0 && srcXG < size.x && srcYG >= 0 && srcYG < size.y) {
                         const index32 = rowIndexOffset + x;
-                        const srcIndex32 = srcY * size.x + srcX;
 
-                        if (distance < ring.innerRadius + innerBlurWidth) {
-                            let t = (distance - ring.innerRadius) * ring.invInnerBlurWidth;
+                        const srcIndexR =
+                            (Math.max(0, Math.min(srcYR, size.y - 1)) * size.x +
+                                Math.max(0, Math.min(srcXR, size.x - 1))) <<
+                            2;
+                        const srcIndexG = (srcYG * size.x + srcXG) << 2;
+                        const srcIndexB =
+                            (Math.max(0, Math.min(srcYB, size.y - 1)) * size.x +
+                                Math.max(0, Math.min(srcXB, size.x - 1))) <<
+                            2;
+
+                        const destIndex8 = index32 << 2;
+
+                        if (distance < innerRadius + innerBlurWidth) {
+                            let t = (distance - innerRadius) * ring.invInnerBlurWidth;
                             t = t * t * (3 - 2 * t);
 
-                            const destIndex8 = index32 << 2;
-                            const srcIndex8 = srcIndex32 << 2;
-
                             newData8[destIndex8 + 0] =
-                                data8[destIndex8 + 0] + (data8[srcIndex8 + 0] - data8[destIndex8 + 0]) * t;
+                                data8[destIndex8 + 0] + (data8[srcIndexR + 0] - data8[destIndex8 + 0]) * t;
                             newData8[destIndex8 + 1] =
-                                data8[destIndex8 + 1] + (data8[srcIndex8 + 1] - data8[destIndex8 + 1]) * t;
+                                data8[destIndex8 + 1] + (data8[srcIndexG + 1] - data8[destIndex8 + 1]) * t;
                             newData8[destIndex8 + 2] =
-                                data8[destIndex8 + 2] + (data8[srcIndex8 + 2] - data8[destIndex8 + 2]) * t;
+                                data8[destIndex8 + 2] + (data8[srcIndexB + 2] - data8[destIndex8 + 2]) * t;
                         } else {
-                            newData32[index32] = data32[srcIndex32];
+                            newData8[destIndex8 + 0] = data8[srcIndexR + 0];
+                            newData8[destIndex8 + 1] = data8[srcIndexG + 1];
+                            newData8[destIndex8 + 2] = data8[srcIndexB + 2];
                         }
                     }
                 }

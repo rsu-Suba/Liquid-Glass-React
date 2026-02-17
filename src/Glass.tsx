@@ -7,7 +7,7 @@ interface DraggablePillLensProps {
     initialY?: number;
     width?: number;
     height?: number;
-    innerRatio?: number;
+    innerRadius?: number;
     innerBlurWidth?: number;
     bgOffsetX?: number;
     bgOffsetY?: number;
@@ -18,8 +18,8 @@ const InvertedCircleLens: React.FC<DraggablePillLensProps> = ({
     imageUrl,
     width = 360,
     height = 120,
-    innerRatio = 0.65,
-    innerBlurWidth = 5,
+    innerRadius = 70,
+    innerBlurWidth = 0,
     bgOffsetX = 0,
     bgOffsetY = 0,
     bgScale = 1.0,
@@ -66,18 +66,35 @@ const InvertedCircleLens: React.FC<DraggablePillLensProps> = ({
             y: Math.round(pos.y - currentSize.height / 2),
         };
 
+        // ctx.fillStyle = "#000";
+        // ctx.fillRect(0, 0, canvasSize.x, canvasSize.y);
         ctx.clearRect(0, 0, canvasSize.x, canvasSize.y);
         ctx.drawImage(imageElement, drawPos.x, drawPos.y, scaledSize.width, scaledSize.height);
+
+        ctx.font = "Bold 60px 'SF Pro', sans-serif";
+        ctx.fillStyle = "rgba(255, 255, 255, 1)";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.shadowColor = "rgba(0, 0, 0, 0.5)";
+        ctx.shadowBlur = 20;
+        ctx.shadowOffsetY = 10;
+
+        ctx.fillText("🤨😓😆", canvasSize.x / 2, canvasSize.y / 2);
+
+        ctx.shadowColor = "transparent";
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
 
         processGlassRefraction({
             ctx,
             startPos,
             size,
             currentSize,
-            innerRatio,
-            innerBlurWidth,
+            innerRadius,
+            innerBlurWidth: innerBlurWidth * lensScale,
         });
-    }, [pos, imageElement, width, height, innerRatio, innerBlurWidth, bgOffsetX, bgOffsetY, bgScale, lensScale]);
+    }, [pos, imageElement, width, height, innerRadius, innerBlurWidth, bgOffsetX, bgOffsetY, bgScale, lensScale]);
 
     const handlePointerDown = (e: React.PointerEvent) => {
         activePointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });

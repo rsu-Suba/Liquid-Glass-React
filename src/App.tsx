@@ -1,7 +1,7 @@
 import "./App.css";
 import Glass from "./Glass.tsx";
 
-export default function PC() {
+export default function App() {
     return (
         <div className="mainCanvas">
             <Glass
