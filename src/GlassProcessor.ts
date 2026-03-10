@@ -8,6 +8,7 @@ interface ProcessGlassParams {
     innerRadius: number;
     innerBlurWidth: number;
     compressionPower?: number;
+    mode: number;
 }
 
 export const processGlassRefraction = ({
@@ -17,18 +18,23 @@ export const processGlassRefraction = ({
     currentSize,
     innerRadius,
     innerBlurWidth,
-    compressionPower = 4.0,
+    mode,
 }: ProcessGlassParams) => {
     try {
-        const maxAberration = 0.3;
-        const maxSpineDistortion = 30.0;
+        const compressionPower = mode == 1 ? 5.0 : 2.23;
+        const maxAberration = mode == 1 ? 0.34 : 0.0;
+        const maxSpineDistortion = mode == 1 ? 35.0 : 5.0;
 
         const imageData = ctx.getImageData(startPos.x, startPos.y, size.x, size.y);
         const data8 = imageData.data;
         const newData8 = new Uint8ClampedArray(data8);
 
         const spine = spineFC(currentSize.width, currentSize.height);
-        innerRadius = Math.min(spine.radius - 20, spine.radius * 0.87);
+        if (mode == 1) {
+            innerRadius = Math.min(spine.radius - 15, spine.radius * 0.7);
+        } else {
+            innerRadius = Math.min(spine.radius - 30, spine.radius * 0.57);
+        }
         const ring = ringFC(spine.radius, innerRadius, innerBlurWidth);
 
         const spineMidX = (spine.Start.x + spine.End.x) * 0.5;
@@ -86,14 +92,10 @@ export const processGlassRefraction = ({
                         const index32 = rowIndexOffset + x;
 
                         const srcIndexR =
-                            (Math.max(0, Math.min(srcYR, size.y - 1)) * size.x +
-                                Math.max(0, Math.min(srcXR, size.x - 1))) <<
-                            2;
+                            (Math.max(0, Math.min(srcYR, size.y - 1)) * size.x + Math.max(0, Math.min(srcXR, size.x - 1))) << 2;
                         const srcIndexG = (srcYG * size.x + srcXG) << 2;
                         const srcIndexB =
-                            (Math.max(0, Math.min(srcYB, size.y - 1)) * size.x +
-                                Math.max(0, Math.min(srcXB, size.x - 1))) <<
-                            2;
+                            (Math.max(0, Math.min(srcYB, size.y - 1)) * size.x + Math.max(0, Math.min(srcXB, size.x - 1))) << 2;
 
                         const destIndex8 = index32 << 2;
 
@@ -101,12 +103,9 @@ export const processGlassRefraction = ({
                             let t = (distance - innerRadius) * ring.invInnerBlurWidth;
                             t = t * t * (3 - 2 * t);
 
-                            newData8[destIndex8 + 0] =
-                                data8[destIndex8 + 0] + (data8[srcIndexR + 0] - data8[destIndex8 + 0]) * t;
-                            newData8[destIndex8 + 1] =
-                                data8[destIndex8 + 1] + (data8[srcIndexG + 1] - data8[destIndex8 + 1]) * t;
-                            newData8[destIndex8 + 2] =
-                                data8[destIndex8 + 2] + (data8[srcIndexB + 2] - data8[destIndex8 + 2]) * t;
+                            newData8[destIndex8 + 0] = data8[destIndex8 + 0] + (data8[srcIndexR + 0] - data8[destIndex8 + 0]) * t;
+                            newData8[destIndex8 + 1] = data8[destIndex8 + 1] + (data8[srcIndexG + 1] - data8[destIndex8 + 1]) * t;
+                            newData8[destIndex8 + 2] = data8[destIndex8 + 2] + (data8[srcIndexB + 2] - data8[destIndex8 + 2]) * t;
                         } else {
                             newData8[destIndex8 + 0] = data8[srcIndexR + 0];
                             newData8[destIndex8 + 1] = data8[srcIndexG + 1];
